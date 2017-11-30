@@ -48,6 +48,8 @@ import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.EffectAndFilterSelectAda
 import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.FaceunityControlView;
 import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.MiscUtil;
 import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.authpack;
+import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.gles.FullFrameRect;
+import com.qiniu.pili.droid.rtcstreaming.demo.faceunity.gles.Texture2dProgram;
 import com.qiniu.pili.droid.streaming.AVCodecType;
 import com.qiniu.pili.droid.streaming.CameraStreamingSetting;
 import com.qiniu.pili.droid.streaming.StreamStatusCallback;
@@ -415,15 +417,10 @@ public class RTCStreamingActivity extends AppCompatActivity {
     }
 
     public void onClickSwitchCamera(View v) {
-        if (!isRuning) {
+        if (!isRunning) {
             return;
         }
-        mCameraPreviewFrameView.queueEvent(new Runnable() {
-            @Override
-            public void run() {
-                mSurfaceTextureCallback.onSurfaceDestroyed();
-            }
-        });
+        isRunning = false;
         mCurrentCamFacingIndex = (mCurrentCamFacingIndex + 1) % CameraStreamingSetting.getNumberOfCameras();
         CameraStreamingSetting.CAMERA_FACING_ID facingId;
         if (mCurrentCamFacingIndex == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK.ordinal()) {
@@ -433,7 +430,16 @@ public class RTCStreamingActivity extends AppCompatActivity {
         } else {
             facingId = CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_3RD;
         }
-        mRTCStreamingManager.switchCamera(facingId);
+        if (mRTCStreamingManager.switchCamera(facingId)) {
+            mCameraPreviewFrameView.queueEvent(new Runnable() {
+                @Override
+                public void run() {
+                    faceunity.fuOnCameraChange();
+                    mSurfaceTextureCallback.onSurfaceDestroyed();
+                    mFrameId = 0;
+                }
+            });
+        }
     }
 
     public void onClickAdjustBitrate(View v) {
@@ -1039,6 +1045,8 @@ public class RTCStreamingActivity extends AppCompatActivity {
 
     private int faceTrackingStatus = 0;
 
+    private boolean isRunning = false;
+
     private long lastOneHundredFrameTimeStamp = 0;
     private int currentFrameCnt = 0;
     private long oneHundredFrameFUTime = 0;
@@ -1046,7 +1054,12 @@ public class RTCStreamingActivity extends AppCompatActivity {
     private boolean isBenchmarkFPS = true;
     private boolean isBenchmarkTime = false;
 
-    private boolean isRuning = false;
+    private FullFrameRect mFullScreenFUDisplay;
+    private int fboTextureId = -1;
+    private int fboId = -1;
+
+    private static final float ROTATE_90[] = {0.0F, 1.0F, 0.0F, 0.0F, -1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
+    private static final float ROTATE_270[] = {0.0F, -1.0F, 0.0F, 0.0F, -1.0F, -0.0F, -0.0F, -0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
 
     private SurfaceTextureCallback mSurfaceTextureCallback = new SurfaceTextureCallback() {
         @Override
@@ -1055,6 +1068,9 @@ public class RTCStreamingActivity extends AppCompatActivity {
             mCreateItemThread = new HandlerThread("faceunity-efect");
             mCreateItemThread.start();
             mCreateItemHandler = new CreateItemHandler(mCreateItemThread.getLooper());
+
+            mFullScreenFUDisplay = new FullFrameRect(new Texture2dProgram(
+                    Texture2dProgram.ProgramType.TEXTURE_2D));
 
             try {
                 InputStream is = getAssets().open("v3.mp3");
@@ -1074,6 +1090,7 @@ public class RTCStreamingActivity extends AppCompatActivity {
                 mFacebeautyItem = faceunity.fuCreateItemFromPackage(itemData);
                 itemsArray[0] = mFacebeautyItem;
 
+                isRunning = true;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -1081,15 +1098,17 @@ public class RTCStreamingActivity extends AppCompatActivity {
 
         @Override
         public void onSurfaceChanged(int width, int height) {
-            Log.e(TAG, "onSurfaceChanged");
+            Log.e(TAG, "onSurfaceChanged  width " + width + " height " + height);
             GLES20.glViewport(0, 0, width, height);
         }
 
         @Override
         public void onSurfaceDestroyed() {
             Log.e(TAG, "onSurfaceDestroyed");
+
+            isRunning = false;
+
             mFrameId = 0;
-            isRuning = false;
 
             if (mCreateItemHandler != null) {
                 mCreateItemHandler.removeMessages(CreateItemHandler.HANDLE_CREATE_ITEM);
@@ -1097,6 +1116,19 @@ public class RTCStreamingActivity extends AppCompatActivity {
                 mCreateItemThread.quitSafely();
                 mCreateItemThread = null;
             }
+
+            if (fboTextureId > 0) {
+                int[] textures = new int[]{fboTextureId};
+                GLES20.glDeleteTextures(1, textures, 0);
+                fboTextureId = -1;
+            }
+
+            if (fboId > 0) {
+                int[] frameBuffers = new int[]{fboId};
+                GLES20.glDeleteFramebuffers(1, frameBuffers, 0);
+                fboId = -1;
+            }
+
 
             //Note: 切忌使用一个已经destroy的item
             faceunity.fuDestroyItem(mEffectItem);
@@ -1109,16 +1141,11 @@ public class RTCStreamingActivity extends AppCompatActivity {
 
             lastOneHundredFrameTimeStamp = 0;
             oneHundredFrameFUTime = 0;
-            isRuning = true;
         }
 
         @Override
         public int onDrawFrame(int texId, int width, int height, float[] floats) {
-            Log.e(TAG, "onDrawFrame start " + Thread.currentThread().getId());
-            isRuning = true;
-            if (!isRuning) {
-                return texId;
-            }
+//            Log.e(TAG, "onDrawFrame start " + Thread.currentThread().getId());
             if (++currentFrameCnt == 100) {
                 currentFrameCnt = 0;
                 long tmp = System.nanoTime();
@@ -1133,6 +1160,17 @@ public class RTCStreamingActivity extends AppCompatActivity {
             if (mCreateItemHandler == null) {
                 return texId;
             }
+
+
+            if (mCameraNV21Byte == null || mCameraNV21Byte.length == 0 || fuImgNV21Bytes == null || fuImgNV21Bytes.length == 0) {
+                Log.e(TAG, "camera nv21 bytes null");
+                return texId;
+            }
+
+            if (!isRunning) {
+                return fboTextureId;
+            }
+            float[] m = mCurrentCamFacingIndex == Camera.CameraInfo.CAMERA_FACING_FRONT ? ROTATE_90 : ROTATE_270;
 
             if (isNeedEffectItem) {
                 isNeedEffectItem = false;
@@ -1155,10 +1193,18 @@ public class RTCStreamingActivity extends AppCompatActivity {
 
             //faceunity.fuItemSetParam(mFacebeautyItem, "use_old_blur", 1);
 
-            if (mCameraNV21Byte == null || mCameraNV21Byte.length == 0 || fuImgNV21Bytes == null || fuImgNV21Bytes.length == 0) {
-                Log.e(TAG, "camera nv21 bytes null");
-                return texId;
+//            if(七牛连麦1.2.1) { // 用于旋转纹理
+            if (fboTextureId == -1 || fboId == -1) {
+                createFBO(width, height);
+                Log.e(TAG, "glBindFramebuffer  width " + width + " height " + height);
             }
+
+            int[] originalViewPort = new int[4];
+            GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, originalViewPort, 0);
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
+            GLES20.glViewport(0, 0, width, height);
+//            }
 
             boolean isOESTexture = true; //camera默认的是OES的
             int flags = isOESTexture ? faceunity.FU_ADM_FLAG_EXTERNAL_OES_TEXTURE : 0;
@@ -1175,8 +1221,17 @@ public class RTCStreamingActivity extends AppCompatActivity {
             long fuEndTime = System.nanoTime();
             oneHundredFrameFUTime += fuEndTime - fuStartTime;
 
+//            if(七牛连麦1.2.1) { // 用于旋转纹理
+
+            mFullScreenFUDisplay.drawFrame(fuTex, m);
+
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+            GLES20.glViewport(originalViewPort[0], originalViewPort[1], originalViewPort[2], originalViewPort[3]);
+//            }
+
 //            Log.e(TAG, "onDrawFrame end ");
-            return fuTex;
+            // 由于七牛1.2.1版本 对GL_TEXTURE_2D纹理不在进行旋转操作，因此需要在代码中使用FBO进行旋转纹理操作
+            return fboTextureId;
         }
     };
 
@@ -1184,7 +1239,7 @@ public class RTCStreamingActivity extends AppCompatActivity {
         @Override
         public boolean onPreviewFrame(byte[] bytes, int width, int height, int rotation, int fmt, long tsInNanoTime) {
 //            Log.e(TAG, "onPreviewFrame start " + Thread.currentThread().getId() + " rotation " + rotation);
-            if (mCameraNV21Byte == null || fuImgNV21Bytes == null) {
+            if (mCameraNV21Byte == null || fuImgNV21Bytes == null || mCameraNV21Byte.length != bytes.length || mCameraNV21Byte.length != fuImgNV21Bytes.length) {
                 mCameraNV21Byte = new byte[bytes.length];
                 fuImgNV21Bytes = new byte[bytes.length];
             }
@@ -1194,6 +1249,40 @@ public class RTCStreamingActivity extends AppCompatActivity {
             return true;
         }
     };
+
+    private void createFBO(int width, int height) {
+        int[] temp = new int[1];
+//generate fbo id
+        GLES20.glGenFramebuffers(1, temp, 0);
+        fboId = temp[0];
+//generate texture
+        GLES20.glGenTextures(1, temp, 0);
+        fboTextureId = temp[0];
+//generate render buffer
+        GLES20.glGenRenderbuffers(1, temp, 0);
+        int renderBufferId = temp[0];
+//Bind Frame buffer
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
+//Bind texture
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, fboTextureId);
+//Define texture parameters
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+//Bind render buffer and define buffer dimension
+        GLES20.glBindRenderbuffer(GLES20.GL_RENDERBUFFER, renderBufferId);
+        GLES20.glRenderbufferStorage(GLES20.GL_RENDERBUFFER, GLES20.GL_DEPTH_COMPONENT16, width, height);
+//Attach texture FBO color attachment
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, fboTextureId, 0);
+//Attach render buffer to depth attachment
+        GLES20.glFramebufferRenderbuffer(GLES20.GL_FRAMEBUFFER, GLES20.GL_DEPTH_ATTACHMENT, GLES20.GL_RENDERBUFFER, renderBufferId);
+//we are done, reset
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+        GLES20.glBindRenderbuffer(GLES20.GL_RENDERBUFFER, 0);
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+    }
 
     class CreateItemHandler extends Handler {
 
@@ -1223,7 +1312,9 @@ public class RTCStreamingActivity extends AppCompatActivity {
                                 @Override
                                 public void run() {
                                     faceunity.fuItemSetParam(mEffectItem, "isAndroid", 1.0);
-                                    if (tmp != 0) {
+                                    faceunity.fuItemSetParam(mEffectItem, "rotationAngle",
+                                            mCurrentCamFacingIndex == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_BACK.ordinal() ? 270 : 90);
+                                    if (tmp != 0 && tmp != mEffectItem) {
                                         faceunity.fuDestroyItem(tmp);
                                     }
                                 }
