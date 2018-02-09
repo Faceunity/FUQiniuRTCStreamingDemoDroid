@@ -1,15 +1,15 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 25
-    buildToolsVersion "25.0.3"
+    compileSdkVersion 26
+    buildToolsVersion "26.0.2"
 
     defaultConfig {
         applicationId "com.qiniu.pili.droid.rtcstreaming.demo"
         minSdkVersion 18
-        targetSdkVersion 25
+        targetSdkVersion 26
         versionCode 1
-        versionName "1.2.0"
+        versionName "2.0.1"
         multiDexEnabled true
         buildConfigField "long", "BUILD_TIMESTAMP", System.currentTimeMillis() + "L"
     }
@@ -22,14 +22,9 @@ android {
 }
 
 dependencies {
-    compile files('libs/nama.jar')
-    compile 'org.adw.library:discrete-seekbar:1.0.1'
-
-    compile 'com.android.support:appcompat-v7:25+'
-    compile 'com.android.support:recyclerview-v7:25+'
     compile 'com.qiniu:happy-dns:0.2.8'
     compile files('libs/pldroid-player-1.5.1.jar')
-    compile files('libs/pldroid-rtc-streaming-1.2.1.jar')
+    compile files('libs/pldroid-rtc-streaming-2.0.1.jar')
     compile 'com.android.support:multidex:1.0.1'
     debugCompile 'com.squareup.leakcanary:leakcanary-android:1.4'
     releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.4'
@@ -37,4 +32,7 @@ dependencies {
     compile 'com.getbase:floatingactionbutton:1.10.1'
     compile 'com.robbypond:material-dialogs:1.0.0'
     compile 'com.github.angads25:filepicker:1.0.6'
+    compile 'com.squareup.okhttp3:okhttp:3.9.1'
+    compile 'com.android.support:design:26.1.0'
+    implementation project(':faceunity')
 }

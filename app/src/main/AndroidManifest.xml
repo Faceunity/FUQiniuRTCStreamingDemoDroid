@@ -30,13 +30,15 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".activity.MainActivity"
-            android:screenOrientation="portrait" >
+        <activity android:name=".activity.LoginActivity"
+                  android:screenOrientation="portrait" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".activity.MainActivity"
+                  android:screenOrientation="portrait" />
         <activity android:name=".activity.conference.ConferenceEntryActivity"
                   android:screenOrientation="portrait" />
         <activity android:name=".activity.streaming.RTCStreamingEntryActivity"
@@ -60,6 +62,9 @@
             android:theme="@style/AppThemeFullscreen"
             android:screenOrientation="landscape" />
         <activity android:name=".activity.conference.ConferenceActivity"
+                  android:theme="@style/AppThemeFullscreen"
+                  android:screenOrientation="portrait" />
+        <activity android:name=".activity.conference.ConferenceAudienceActivity"
                   android:theme="@style/AppThemeFullscreen"
                   android:screenOrientation="portrait" />
     </application>

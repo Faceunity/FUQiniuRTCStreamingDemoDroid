@@ -12,10 +12,7 @@ import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
-import com.qiniu.pili.droid.rtcstreaming.RTCMediaStreamingManager;
 import com.qiniu.pili.droid.rtcstreaming.demo.R;
-import com.qiniu.pili.droid.rtcstreaming.demo.core.StreamUtils;
-import com.squareup.leakcanary.LeakCanary;
 
 public class ConferenceEntryActivity extends AppCompatActivity {
 
@@ -34,9 +31,6 @@ public class ConferenceEntryActivity extends AppCompatActivity {
 
         setTitle(R.string.rtc_only);
 
-        LeakCanary.install(getApplication());
-        RTCMediaStreamingManager.init(getApplicationContext());
-
         mCodecRadioGroup = (RadioGroup) findViewById(R.id.CodecRadioGroup);
         mRTCModeRadioGroup = (RadioGroup) findViewById(R.id.RTCModeGroup);
 
@@ -50,12 +44,6 @@ public class ConferenceEntryActivity extends AppCompatActivity {
         mRoomEditText.setText(preferences.getString("roomName", ""));
 
         MultiDex.install(this);
-
-        // Check server configuration
-        if ("".equals(StreamUtils.getAppServerAddr())) {
-            Toast.makeText(this, getString(R.string.server_not_configure), Toast.LENGTH_LONG).show();
-            finish();
-        }
     }
 
     @Override
@@ -80,6 +68,14 @@ public class ConferenceEntryActivity extends AppCompatActivity {
         intent.putExtra("debugMode", mCheckBoxDebugMode.isChecked());
         intent.putExtra("audioLevelCallback", mCheckBoxAudioLevel.isChecked());
         intent.putExtra("enableStats", mCheckboxEnableStats.isChecked());
+        startActivity(intent);
+    }
+
+    public void onClickConferenceAudience(View v) {
+        final String roomName = mRoomEditText.getText().toString();
+        Intent intent = new Intent(this, ConferenceAudienceActivity.class);
+        intent.putExtra("roomName", roomName.trim());
+        intent.putExtra("audioLevelCallback", mCheckBoxAudioLevel.isChecked());
         startActivity(intent);
     }
 

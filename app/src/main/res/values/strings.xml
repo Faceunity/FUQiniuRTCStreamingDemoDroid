@@ -39,7 +39,9 @@
     <string name="engine_not_initialized">引擎未初始化 </string>
     <string name="not_join_room">没有加入房间 ！</string>
     <string name="join_room_failed">无法加入房间，错误码：</string>
-    <string name="failed_to_connect_rtc_server">无法连接RTC服务器 ！</string>
+    <string name="reconnecting">网络断线，正在重连RTC服务器 ！</string>
+    <string name="reconnected">成功重连RTC服务器 ！</string>
+    <string name="reconnect_failed">无法连接RTC服务器 ！</string>
     <string name="user_join_other_where">用户在其它地方登录 ！</string>
     <string name="user_kickout_by_host">您被主持人踢出房间 ！</string>
 

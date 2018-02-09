@@ -17,7 +17,7 @@ import com.pili.pldroid.player.PLMediaPlayer;
 import com.pili.pldroid.player.widget.PLVideoView;
 import com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming.ExtCapStreamingActivity;
 import com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming.PKViceAnchorActivity;
-import com.qiniu.pili.droid.rtcstreaming.demo.core.StreamUtils;
+import com.qiniu.pili.droid.rtcstreaming.demo.core.QiniuAppServer;
 import com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming.RTCAudioStreamingActivity;
 import com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming.RTCStreamingActivity;
 
@@ -26,6 +26,8 @@ public class PlaybackActivity extends AppCompatActivity {
     private static final String TAG = PlaybackActivity.class.getSimpleName();
 
     private static final int MESSAGE_ID_RECONNECTING = 0x01;
+    private static final int DEFAULT_PREVIEW_SIZE_RATIO = 1;
+    private static final int DEFAULT_PREVIEW_SIZE_LEVEL = 1;
 
     private View mLoadingView;
     private PLVideoView mVideoView;
@@ -38,6 +40,7 @@ public class PlaybackActivity extends AppCompatActivity {
     private boolean mIsSWCodec = true;
     private boolean mIsActivityPaused = true;
     private boolean mIsPKMode = false;
+    private boolean mIsFaceBeautyEnabled = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,12 +53,13 @@ public class PlaybackActivity extends AppCompatActivity {
         mVideoView.setBufferingIndicator(mLoadingView);
 
         mVideoPath = getIntent().getStringExtra("videoPath");
-        mRoomName = getIntent().getStringExtra("roomName");
+        mRoomName  = getIntent().getStringExtra("roomName");
         mIsExtCapture = getIntent().getBooleanExtra("extCapture", false);
         mIsPKMode = getIntent().getBooleanExtra("pkmode", false);
         mIsLandscape = getIntent().getBooleanExtra("orientation", false);
         mIsAudioOnly = getIntent().getBooleanExtra("audioOnly", false);
         mIsSWCodec = getIntent().getBooleanExtra("swcodec", true);
+        mIsFaceBeautyEnabled = getIntent().getBooleanExtra("beauty", true);
         setRequestedOrientation(mIsLandscape ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         AVOptions options = new AVOptions();
@@ -109,16 +113,17 @@ public class PlaybackActivity extends AppCompatActivity {
     public void onClickConference(View v) {
         Toast.makeText(this, "申请连麦... 主播已同意 !", Toast.LENGTH_SHORT).show();
         if (mIsAudioOnly) {
-            jumpToStreamingActivity(StreamUtils.RTC_ROLE_VICE_ANCHOR, RTCAudioStreamingActivity.class);
+            jumpToStreamingActivity(QiniuAppServer.RTC_ROLE_VICE_ANCHOR, RTCAudioStreamingActivity.class);
         } else if (mIsPKMode) {
             Intent intent = new Intent(this, PKViceAnchorActivity.class);
             intent.putExtra("roomName", mRoomName);
+            intent.putExtra("beauty", mIsFaceBeautyEnabled);
             startActivity(intent);
         } else {
             if (!mIsExtCapture) {
-                jumpToStreamingActivity(StreamUtils.RTC_ROLE_VICE_ANCHOR, RTCStreamingActivity.class);
+                jumpToStreamingActivity(QiniuAppServer.RTC_ROLE_VICE_ANCHOR, RTCStreamingActivity.class);
             } else {
-                jumpToStreamingActivity(StreamUtils.RTC_ROLE_VICE_ANCHOR, ExtCapStreamingActivity.class);
+                jumpToStreamingActivity(QiniuAppServer.RTC_ROLE_VICE_ANCHOR, ExtCapStreamingActivity.class);
             }
         }
     }
@@ -129,6 +134,9 @@ public class PlaybackActivity extends AppCompatActivity {
         intent.putExtra("roomName", mRoomName);
         intent.putExtra("swcodec", mIsSWCodec);
         intent.putExtra("orientation", mIsLandscape);
+        intent.putExtra("beauty", mIsFaceBeautyEnabled);
+        intent.putExtra("PreviewSizeRatio", DEFAULT_PREVIEW_SIZE_RATIO);
+        intent.putExtra("PreviewSizeLevel", DEFAULT_PREVIEW_SIZE_LEVEL);
         startActivity(intent);
     }
 
@@ -230,7 +238,7 @@ public class PlaybackActivity extends AppCompatActivity {
             if (msg.what != MESSAGE_ID_RECONNECTING || mIsActivityPaused) {
                 return;
             }
-            if (!StreamUtils.isNetworkAvailable(PlaybackActivity.this)) {
+            if (!QiniuAppServer.isNetworkAvailable(PlaybackActivity.this)) {
                 sendReconnectMessage();
                 return;
             }

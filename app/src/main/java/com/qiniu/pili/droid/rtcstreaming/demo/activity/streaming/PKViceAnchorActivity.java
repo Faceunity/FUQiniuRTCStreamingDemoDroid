@@ -3,6 +3,7 @@ package com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming;
 import android.app.ProgressDialog;
 import android.content.pm.ActivityInfo;
 import android.hardware.Camera;
+import android.media.MediaRecorder;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Looper;
@@ -14,25 +15,28 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.Toast;
 
+import com.qiniu.pili.droid.rtcstreaming.RTCAudioSource;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceOptions;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceState;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceStateChangedListener;
 import com.qiniu.pili.droid.rtcstreaming.RTCMediaStreamingManager;
 import com.qiniu.pili.droid.rtcstreaming.RTCRemoteWindowEventListener;
 import com.qiniu.pili.droid.rtcstreaming.RTCStartConferenceCallback;
+import com.qiniu.pili.droid.rtcstreaming.RTCSurfaceView;
 import com.qiniu.pili.droid.rtcstreaming.RTCVideoWindow;
 import com.qiniu.pili.droid.rtcstreaming.demo.R;
-import com.qiniu.pili.droid.rtcstreaming.demo.core.StreamUtils;
+import com.qiniu.pili.droid.rtcstreaming.demo.core.QiniuAppServer;
 import com.qiniu.pili.droid.streaming.AVCodecType;
 import com.qiniu.pili.droid.streaming.CameraStreamingSetting;
+import com.qiniu.pili.droid.streaming.MicrophoneStreamingSetting;
 import com.qiniu.pili.droid.streaming.StreamingSessionListener;
 
 import java.util.List;
 
 /**
- * 演示横屏 PK 模式下的副主播端代码
- * PK 模式只支持一个主播和一个副主播进行连麦，副主播的布局配置方法如下：
- * 左右两个 GLSurfaceView，左边显示主播的画面，右边显示副主播的预览
+ *  演示横屏 PK 模式下的副主播端代码
+ *  PK 模式只支持一个主播和一个副主播进行连麦，副主播的布局配置方法如下：
+ *  左右两个 GLSurfaceView，左边显示主播的画面，右边显示副主播的预览
  */
 public class PKViceAnchorActivity extends AppCompatActivity {
     private static final String TAG = "PKViceAnchorActivity";
@@ -57,12 +61,7 @@ public class PKViceAnchorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_pk_vice_anchor);
 
         /**
-         * Step 1: init sdk, you can also move this to Application.onCreate
-         */
-        RTCMediaStreamingManager.init(getApplicationContext());
-
-        /**
-         * Step 2: find & init views
+         * Step 1: find & init views
          */
         GLSurfaceView cameraPreviewFrameView = (GLSurfaceView) findViewById(R.id.cameraPreview_surfaceView);
 
@@ -82,7 +81,7 @@ public class PKViceAnchorActivity extends AppCompatActivity {
         mCurrentCamFacingIndex = facingId.ordinal();
 
         /**
-         * Step 3: config camera settings
+         * Step 2: config camera & microphone settings
          */
         CameraStreamingSetting cameraStreamingSetting = new CameraStreamingSetting();
         cameraStreamingSetting.setCameraFacingId(facingId)
@@ -99,8 +98,11 @@ public class PKViceAnchorActivity extends AppCompatActivity {
             cameraStreamingSetting.setVideoFilter(CameraStreamingSetting.VIDEO_FILTER_TYPE.VIDEO_FILTER_BEAUTY); // set the beauty on/off
         }
 
+        MicrophoneStreamingSetting microphoneStreamingSetting = new MicrophoneStreamingSetting();
+        microphoneStreamingSetting.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
+
         /**
-         * Step 4: create streaming manager and set listeners
+         * Step 3: create streaming manager and set listeners
          */
         AVCodecType codecType = isSwCodec ? AVCodecType.SW_VIDEO_WITH_SW_AUDIO_CODEC : AVCodecType.HW_VIDEO_YUV_AS_INPUT_WITH_HW_AUDIO_CODEC;
         mRTCStreamingManager = new RTCMediaStreamingManager(getApplicationContext(), cameraPreviewFrameView, codecType);
@@ -110,31 +112,32 @@ public class PKViceAnchorActivity extends AppCompatActivity {
         mRTCStreamingManager.setDebugLoggingEnabled(isDebugModeEnabled);
 
         /**
-         * Step 5: set conference options
+         * Step 4: set conference options
          */
         RTCConferenceOptions options = new RTCConferenceOptions();
         // RATIO_4_3 & VIDEO_ENCODING_SIZE_HEIGHT_240 means the output size is 640 x 480
         options.setVideoEncodingSizeRatio(RTCConferenceOptions.VIDEO_ENCODING_SIZE_RATIO.RATIO_4_3);
         options.setVideoEncodingSizeLevel(RTCConferenceOptions.VIDEO_ENCODING_SIZE_HEIGHT_480);
+        options.setVideoEncodingOrientation(RTCConferenceOptions.VIDEO_ENCODING_ORIENTATION.LAND);
         options.setVideoBitrateRange(300 * 1024, 800 * 1024);
         // 15 fps is enough
         options.setVideoEncodingFps(15);
         mRTCStreamingManager.setConferenceOptions(options);
 
         /**
-         * Step 6: create the remote windows
+         * Step 5: create the remote windows
          */
-        RTCVideoWindow windowA = new RTCVideoWindow((GLSurfaceView) findViewById(R.id.RemoteGLSurfaceViewA));
+        RTCVideoWindow windowA = new RTCVideoWindow((RTCSurfaceView) findViewById(R.id.RemoteGLSurfaceViewA));
 
         /**
-         * Step 7: add the remote windows
+         * Step 6: add the remote windows
          */
         mRTCStreamingManager.addRemoteWindow(windowA);
 
         /**
-         * Step 8: do prepare
+         * Step 7: do prepare
          */
-        mRTCStreamingManager.prepare(cameraStreamingSetting, null, null, null);
+        mRTCStreamingManager.prepare(cameraStreamingSetting, microphoneStreamingSetting, null, null);
 
         mProgressDialog = new ProgressDialog(this);
     }
@@ -144,7 +147,7 @@ public class PKViceAnchorActivity extends AppCompatActivity {
         super.onResume();
         mIsActivityPaused = false;
         /**
-         * Step 9: You must start capture before conference or streaming
+         * Step 8: You must start capture before conference or streaming
          * You will receive `Ready` state callback when capture started success
          */
         mRTCStreamingManager.startCapture();
@@ -155,7 +158,7 @@ public class PKViceAnchorActivity extends AppCompatActivity {
         super.onPause();
         mIsActivityPaused = true;
         /**
-         * Step 10: You must stop capture, stop conference, stop streaming when activity paused
+         * Step 9: You must stop capture, stop conference, stop streaming when activity paused
          */
         mRTCStreamingManager.stopCapture();
         stopConference();
@@ -165,13 +168,9 @@ public class PKViceAnchorActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         /**
-         * Step 11: You must call destroy to release some resources when activity destroyed
+         * Step 10: You must call destroy to release some resources when activity destroyed
          */
         mRTCStreamingManager.destroy();
-        /**
-         * Step 12: You can also move this to your MainActivity.onDestroy
-         */
-        RTCMediaStreamingManager.deinit();
     }
 
     public void onClickSwitchCamera(View v) {
@@ -193,6 +192,10 @@ public class PKViceAnchorActivity extends AppCompatActivity {
     }
 
     private boolean startConference() {
+        if (!QiniuAppServer.isNetworkAvailable(this)) {
+            Toast.makeText(PKViceAnchorActivity.this, "network is unavailable!!!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
         if (mIsConferenceStarted) {
             return true;
         }
@@ -208,13 +211,13 @@ public class PKViceAnchorActivity extends AppCompatActivity {
     }
 
     private boolean startConferenceInternal() {
-        String roomToken = StreamUtils.requestRoomToken(StreamUtils.getTestUserId(this), mRoomName);
+        String roomToken = QiniuAppServer.getInstance().requestRoomToken(QiniuAppServer.getTestUserId(this), mRoomName);
         if (roomToken == null) {
             dismissProgressDialog();
             showToast("无法获取房间信息 !", Toast.LENGTH_SHORT);
             return false;
         }
-        mRTCStreamingManager.startConference(StreamUtils.getTestUserId(this), mRoomName, roomToken, new RTCStartConferenceCallback() {
+        mRTCStreamingManager.startConference(QiniuAppServer.getTestUserId(this), mRoomName, roomToken, new RTCStartConferenceCallback() {
             @Override
             public void onStartConferenceSuccess() {
                 dismissProgressDialog();
@@ -277,6 +280,11 @@ public class PKViceAnchorActivity extends AppCompatActivity {
             }
             return null;
         }
+
+        @Override
+        public int onPreviewFpsSelected(List<int[]> list) {
+            return -1;
+        }
     };
 
     private RTCConferenceStateChangedListener mRTCStreamingStateChangedListener = new RTCConferenceStateChangedListener() {
@@ -287,9 +295,14 @@ public class PKViceAnchorActivity extends AppCompatActivity {
                     // You must `StartConference` after `Ready`
                     showToast(getString(R.string.ready), Toast.LENGTH_SHORT);
                     break;
-                case CONNECT_FAIL:
-                    showToast(getString(R.string.failed_to_connect_rtc_server), Toast.LENGTH_SHORT);
-                    finish();
+                case RECONNECTING:
+                    showToast(getString(R.string.reconnecting), Toast.LENGTH_SHORT);
+                    break;
+                case RECONNECTED:
+                    showToast(getString(R.string.reconnected), Toast.LENGTH_SHORT);
+                    break;
+                case RECONNECT_FAIL:
+                    showToast(getString(R.string.reconnect_failed), Toast.LENGTH_SHORT);
                     break;
                 case VIDEO_PUBLISH_FAILED:
                 case AUDIO_PUBLISH_FAILED:
@@ -342,10 +355,14 @@ public class PKViceAnchorActivity extends AppCompatActivity {
     private View.OnClickListener mMuteButtonClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            mRTCStreamingManager.mute(mMuteCheckBox.isChecked());
+            if (mMuteCheckBox.isChecked()) {
+                mRTCStreamingManager.mute(RTCAudioSource.MIC);
+            } else {
+                mRTCStreamingManager.unMute(RTCAudioSource.MIC);
+            }
         }
     };
-
+    
     public void onClickStreaming(View v) {
         if (!mIsConferenceStarted) {
             startConference();

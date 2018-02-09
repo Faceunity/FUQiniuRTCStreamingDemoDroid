@@ -16,10 +16,10 @@
 #   public *;
 #}
 
--dontwarn cn.tee3.**
+-dontwarn com.youme.**
 -dontwarn org.webrtc.**
 -dontwarn com.qiniu.**
--keep class cn.tee3.** {*;}
+-keep class com.youme.** {*;}
 -keep class org.webrtc.** {*;}
 -keep class com.pili.pldroid.player.** {*;}
 -keep class com.qiniu.android.dns.** {*;}

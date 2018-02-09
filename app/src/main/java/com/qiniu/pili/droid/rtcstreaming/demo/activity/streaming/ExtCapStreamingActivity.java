@@ -3,7 +3,6 @@ package com.qiniu.pili.droid.rtcstreaming.demo.activity.streaming;
 import android.app.ProgressDialog;
 import android.content.pm.ActivityInfo;
 import android.hardware.Camera;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,18 +17,20 @@ import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.qiniu.pili.droid.rtcstreaming.RTCAudioSource;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceOptions;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceState;
 import com.qiniu.pili.droid.rtcstreaming.RTCConferenceStateChangedListener;
 import com.qiniu.pili.droid.rtcstreaming.RTCRemoteWindowEventListener;
 import com.qiniu.pili.droid.rtcstreaming.RTCStartConferenceCallback;
 import com.qiniu.pili.droid.rtcstreaming.RTCStreamingManager;
+import com.qiniu.pili.droid.rtcstreaming.RTCSurfaceView;
 import com.qiniu.pili.droid.rtcstreaming.RTCUserEventListener;
 import com.qiniu.pili.droid.rtcstreaming.RTCVideoWindow;
 import com.qiniu.pili.droid.rtcstreaming.demo.R;
 import com.qiniu.pili.droid.rtcstreaming.demo.core.ExtAudioCapture;
 import com.qiniu.pili.droid.rtcstreaming.demo.core.ExtVideoCapture;
-import com.qiniu.pili.droid.rtcstreaming.demo.core.StreamUtils;
+import com.qiniu.pili.droid.rtcstreaming.demo.core.QiniuAppServer;
 import com.qiniu.pili.droid.streaming.AVCodecType;
 import com.qiniu.pili.droid.streaming.StreamStatusCallback;
 import com.qiniu.pili.droid.streaming.StreamingProfile;
@@ -44,7 +45,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 
 /**
- * 演示在 SDK 外部导入 Video/Audio 数据，实现连麦 & 推流
+ *  演示在 SDK 外部导入 Video/Audio 数据，实现连麦 & 推流
  */
 public class ExtCapStreamingActivity extends AppCompatActivity {
 
@@ -83,12 +84,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_extcapture_streaming);
 
-        /**
-         * Step 1: init sdk, you can also move this to Application.onCreate
-         */
-        RTCStreamingManager.init(getApplicationContext());
-
-        mRole = getIntent().getIntExtra("role", StreamUtils.RTC_ROLE_VICE_ANCHOR);
+        mRole = getIntent().getIntExtra("role", QiniuAppServer.RTC_ROLE_VICE_ANCHOR);
         mRoomName = getIntent().getStringExtra("roomName");
         boolean isSwCodec = getIntent().getBooleanExtra("swcodec", true);
         boolean isLandscape = getIntent().getBooleanExtra("orientation", false);
@@ -104,7 +100,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         mConferenceCheckBox = (CheckBox) findViewById(R.id.ConferenceCheckBox);
         mConferenceCheckBox.setOnClickListener(mConferenceButtonClickListener);
 
-        if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+        if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
             mConferenceCheckBox.setVisibility(View.VISIBLE);
         }
 
@@ -117,7 +113,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         mRTCStreamingManager.setDebugLoggingEnabled(false);
 
         RTCConferenceOptions options = new RTCConferenceOptions();
-        if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+        if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
             // anchor should use a bigger size, must equals to `StreamProfile.setPreferredVideoEncodingSize` or `StreamProfile.setEncodingSizeLevel`
             // RATIO_16_9 & VIDEO_ENCODING_SIZE_HEIGHT_480 means the output size is 848 x 480
             options.setVideoEncodingSizeRatio(RTCConferenceOptions.VIDEO_ENCODING_SIZE_RATIO.RATIO_16_9);
@@ -139,19 +135,19 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         mRTCStreamingManager.setConferenceOptions(options);
 
         // add the remote window
-        RTCVideoWindow windowA = new RTCVideoWindow(findViewById(R.id.RemoteWindowA), (GLSurfaceView) findViewById(R.id.RemoteGLSurfaceViewA));
-        RTCVideoWindow windowB = new RTCVideoWindow(findViewById(R.id.RemoteWindowB), (GLSurfaceView) findViewById(R.id.RemoteGLSurfaceViewB));
+        RTCVideoWindow windowA = new RTCVideoWindow(findViewById(R.id.RemoteWindowA), (RTCSurfaceView) findViewById(R.id.RemoteGLSurfaceViewA));
+        RTCVideoWindow windowB = new RTCVideoWindow(findViewById(R.id.RemoteWindowB), (RTCSurfaceView) findViewById(R.id.RemoteGLSurfaceViewB));
 
         // The anchor must configure the mix stream position and size
-        if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+        if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
             // set mix overlay params with absolute value
             // the w & h of remote window equals with or smaller than the vice anchor can reduce cpu consumption
             if (isLandscape) {
-                windowA.setAbsolutetMixOverlayRect(options.getVideoEncodingWidth() - 320, 100, 320, 240);
-                windowB.setAbsolutetMixOverlayRect(0, 100, 320, 240);
+                windowA.setAbsoluteMixOverlayRect(options.getVideoEncodingWidth() - 320, 100, 320, 240);
+                windowB.setAbsoluteMixOverlayRect(0, 100, 320, 240);
             } else {
-                windowA.setAbsolutetMixOverlayRect(options.getVideoEncodingHeight() - 240, 100, 240, 320);
-                windowB.setAbsolutetMixOverlayRect(options.getVideoEncodingHeight() - 240, 420, 240, 320);
+                windowA.setAbsoluteMixOverlayRect(options.getVideoEncodingHeight() - 240, 100, 240, 320);
+                windowB.setAbsoluteMixOverlayRect(options.getVideoEncodingHeight() - 240, 420, 240, 320);
             }
 
             // set mix overlay params with relative value
@@ -169,7 +165,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         }
 
         // the anchor must configure the `StreamingProfile`
-        if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+        if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
             mRTCStreamingManager.setStreamStatusCallback(mStreamStatusCallback);
             mRTCStreamingManager.setStreamingStateListener(mStreamingStateChangedListener);
             mRTCStreamingManager.setStreamingSessionListener(mStreamingSessionListener);
@@ -220,7 +216,6 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         mRTCStreamingManager.destroy();
-        RTCStreamingManager.deinit();
     }
 
     public void onClickKickoutUserA(View v) {
@@ -247,6 +242,10 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     }
 
     private boolean startConference() {
+        if (!QiniuAppServer.isNetworkAvailable(this)) {
+            Toast.makeText(ExtCapStreamingActivity.this, "network is unavailable!!!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
         if (mIsConferenceStarted) {
             return true;
         }
@@ -262,13 +261,13 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     }
 
     private boolean startConferenceInternal() {
-        String roomToken = StreamUtils.requestRoomToken(StreamUtils.getTestUserId(this), mRoomName);
+        String roomToken = QiniuAppServer.getInstance().requestRoomToken(QiniuAppServer.getTestUserId(this), mRoomName);
         if (roomToken == null) {
             dismissProgressDialog();
             showToast("无法获取房间信息 !", Toast.LENGTH_SHORT);
             return false;
         }
-        mRTCStreamingManager.startConference(StreamUtils.getTestUserId(this), mRoomName, roomToken, new RTCStartConferenceCallback() {
+        mRTCStreamingManager.startConference(QiniuAppServer.getTestUserId(this), mRoomName, roomToken, new RTCStartConferenceCallback() {
             @Override
             public void onStartConferenceSuccess() {
                 dismissProgressDialog();
@@ -307,6 +306,10 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     }
 
     private boolean startPublishStreaming() {
+        if (!QiniuAppServer.isNetworkAvailable(this)) {
+            Toast.makeText(ExtCapStreamingActivity.this, "network is unavailable!!!", Toast.LENGTH_SHORT).show();
+            return false;
+        }
         if (mIsPublishStreamStarted) {
             return true;
         }
@@ -326,7 +329,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     }
 
     private boolean startPublishStreamingInternal() {
-        String publishAddr = StreamUtils.requestPublishAddress(mRoomName);
+        String publishAddr = QiniuAppServer.getInstance().requestPublishAddress(mRoomName);
         if (publishAddr == null) {
             dismissProgressDialog();
             showToast("无法获取房间信息/推流地址 !", Toast.LENGTH_SHORT);
@@ -334,16 +337,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         }
 
         try {
-            if (StreamUtils.IS_USING_STREAMING_JSON) {
-                mStreamingProfile.setStream(new StreamingProfile.Stream(new JSONObject(publishAddr)));
-            } else {
-                mStreamingProfile.setPublishUrl(publishAddr);
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-            dismissProgressDialog();
-            showToast("无效的推流地址 !", Toast.LENGTH_SHORT);
-            return false;
+            mStreamingProfile.setPublishUrl(publishAddr);
         } catch (URISyntaxException e) {
             e.printStackTrace();
             dismissProgressDialog();
@@ -472,6 +466,11 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         public Camera.Size onPreviewSizeSelected(List<Camera.Size> list) {
             return null;
         }
+
+        @Override
+        public int onPreviewFpsSelected(List<int[]> list) {
+            return -1;
+        }
     };
 
     private Handler mHandler = new Handler(Looper.getMainLooper()) {
@@ -480,7 +479,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
             if (msg.what != MESSAGE_ID_RECONNECTING || mIsActivityPaused || !mIsPublishStreamStarted) {
                 return;
             }
-            if (!StreamUtils.isNetworkAvailable(ExtCapStreamingActivity.this)) {
+            if (!QiniuAppServer.isNetworkAvailable(ExtCapStreamingActivity.this)) {
                 sendReconnectMessage();
                 return;
             }
@@ -503,9 +502,14 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
                     // You must `StartConference` after `Ready`
                     showToast(getString(R.string.ready), Toast.LENGTH_SHORT);
                     break;
-                case CONNECT_FAIL:
-                    showToast(getString(R.string.failed_to_connect_rtc_server), Toast.LENGTH_SHORT);
-                    finish();
+                case RECONNECTING:
+                    showToast(getString(R.string.reconnecting), Toast.LENGTH_SHORT);
+                    break;
+                case RECONNECTED:
+                    showToast(getString(R.string.reconnected), Toast.LENGTH_SHORT);
+                    break;
+                case RECONNECT_FAIL:
+                    showToast(getString(R.string.reconnect_failed), Toast.LENGTH_SHORT);
                     break;
                 case VIDEO_PUBLISH_FAILED:
                 case AUDIO_PUBLISH_FAILED:
@@ -575,12 +579,16 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
     private View.OnClickListener mMuteButtonClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            mRTCStreamingManager.mute(mMuteCheckBox.isChecked());
+            if (mMuteCheckBox.isChecked()) {
+                mRTCStreamingManager.mute(RTCAudioSource.MIC);
+            } else {
+                mRTCStreamingManager.unMute(RTCAudioSource.MIC);
+            }
         }
     };
 
     public void onClickStreaming(View v) {
-        if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+        if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
             if (!mIsPublishStreamStarted) {
                 startPublishStreaming();
             } else {
@@ -617,7 +625,7 @@ public class ExtCapStreamingActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (mRole == StreamUtils.RTC_ROLE_ANCHOR) {
+                if (mRole == QiniuAppServer.RTC_ROLE_ANCHOR) {
                     if (mIsPublishStreamStarted) {
                         mControlButton.setText(getString(R.string.stop_streaming));
                     } else {
