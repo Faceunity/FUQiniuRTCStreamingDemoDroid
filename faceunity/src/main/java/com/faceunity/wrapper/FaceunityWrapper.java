@@ -134,6 +134,10 @@ public class FaceunityWrapper {
 
     public void onSurfaceDestroyed() {
         Log.e(TAG, "onSurfaceDestroyed = " + Thread.currentThread().getId());
+        if (mCreateItemHandler == null) {
+            return;
+        }
+
         mFrameId = 0;
 
         mCreateItemHandler.removeMessages(CreateItemHandler.HANDLE_CREATE_ITEM);
@@ -163,6 +167,10 @@ public class FaceunityWrapper {
      * @return 特效处理后的纹理
      */
     public int onDrawFrame(int texId, int texWidth, int texHeight, float[] transformMatrix) {
+        if (mCreateItemThread == null) {
+            return texId;
+        }
+
         if (++currentFrameCnt == 100) {
             currentFrameCnt = 0;
             long tmp = System.nanoTime();
