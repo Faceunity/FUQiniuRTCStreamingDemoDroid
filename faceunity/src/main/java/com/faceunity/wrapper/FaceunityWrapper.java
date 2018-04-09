@@ -130,6 +130,9 @@ public class FaceunityWrapper {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        cameraWidth = 0;
+        cameraHeight = 0;
     }
 
     public void onSurfaceDestroyed() {
@@ -260,7 +263,7 @@ public class FaceunityWrapper {
         mCameraNV21Byte = bytes;
 
         byte[] fuImgNV21Bytes = this.fuImgNV21Bytes;
-        if (fuImgNV21Bytes != null) {
+        if (fuImgNV21Bytes != null && fuImgNV21Bytes.length == data.length) {
             System.arraycopy(fuImgNV21Bytes, 0, data, 0, data.length);
         }
 
@@ -274,6 +277,8 @@ public class FaceunityWrapper {
     float[] rotationData = new float[4];
     float[] pupilPosData = new float[2];
     float[] rotationModeData = new float[1];
+
+    private volatile int cameraWidth, cameraHeight;
 
     int drawAvatar(EffectItem mEffectItem, int mCameraWidth, int mCameraHeight) {
         faceunity.fuTrackFace(mCameraNV21Byte, 0, mCameraWidth, mCameraHeight);
@@ -316,6 +321,11 @@ public class FaceunityWrapper {
         }
 
         byte[] bytes = new byte[mCameraWidth * mCameraHeight * 3 / 2];
+        if (cameraWidth != mCameraWidth || cameraHeight != mCameraHeight) {
+            faceunity.fuClearReadbackRelated();
+        }
+        cameraWidth = mCameraWidth;
+        cameraHeight = mCameraHeight;
         int texture = faceunity.fuAvatarToImage(pupilPosData,
                 expressionData,
                 rotationData,
@@ -449,7 +459,9 @@ public class FaceunityWrapper {
                         }
                         if (tmp != 0) {
                             synchronized (FaceunityWrapper.this) {
-                                faceunity.fuDestroyItem(tmp);
+                                if (mEffectItem.item != tmp) {
+                                    faceunity.fuDestroyItem(tmp);
+                                }
                             }
                         }
                     } catch (IOException e) {
@@ -464,7 +476,16 @@ public class FaceunityWrapper {
     private int fboTex[];
     private int renderBufferId[];
 
+    private int fboWidth, fboHeight;
+
     private void createFBO(int width, int height) {
+        if (fboTex != null && (fboWidth != width || fboHeight != height)) {
+            deleteFBO();
+        }
+
+        fboWidth = width;
+        fboHeight = height;
+
         if (fboTex == null) {
             fboId = new int[2];
             fboTex = new int[2];
