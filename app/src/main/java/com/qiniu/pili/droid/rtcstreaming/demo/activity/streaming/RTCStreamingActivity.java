@@ -22,14 +22,13 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
-import com.faceunity.wrapper.FaceunityControlView;
-import com.faceunity.wrapper.FaceunityWrapper;
+import com.faceunity.beautycontrolview.BeautyControlView;
+import com.faceunity.beautycontrolview.FURenderer;
+import com.faceunity.wrapper.faceunity;
 import com.getbase.floatingactionbutton.FloatingActionButton;
 import com.qiniu.pili.droid.rtcstreaming.RTCAudioLevelCallback;
 import com.qiniu.pili.droid.rtcstreaming.RTCAudioSource;
@@ -135,9 +134,9 @@ public class RTCStreamingActivity extends AppCompatActivity {
     private int mEncodingFps = 20;
     private int mEncodingBitrate = 1000 * 1024;
 
-    private FaceunityWrapper mFaceunityWrapper;
-    private FaceunityControlView mControlView;
-    private ImageView mFaceStatusView;
+    private FURenderer mFURenderer;
+
+    private BeautyControlView mFaceunityControlView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -315,58 +314,37 @@ public class RTCStreamingActivity extends AppCompatActivity {
             }
         });
 
-        mFaceunityWrapper = new FaceunityWrapper(this, cameraStreamingSetting.getCameraFacingId() == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT ? Camera.CameraInfo.CAMERA_FACING_FRONT : Camera.CameraInfo.CAMERA_FACING_BACK);
+        mFURenderer = new FURenderer.Builder(this).inputTextureType(faceunity.FU_ADM_FLAG_EXTERNAL_OES_TEXTURE).build();
 
-        mFaceStatusView = (ImageView) findViewById(R.id.iv_face_detect);
-
-        mControlView = (FaceunityControlView) findViewById(R.id.faceunity_control_layout);
-        mControlView.setOnViewEventListener(mFaceunityWrapper.initUIEventListener());
+        mFaceunityControlView = (BeautyControlView) findViewById(R.id.faceunity_control);
+        mFaceunityControlView.setOnFaceUnityControlListener(mFURenderer);
 
         mRTCStreamingManager.setSurfaceTextureCallback(new SurfaceTextureCallback() {
-            private int surfaceWidth;
-            private int surfaceHeight;
-            private boolean isTrackerOnSurfaceChangedCalled;
-
-            private int faceTrackingStatus;
 
             @Override
             public void onSurfaceCreated() {
-                mFaceunityWrapper.onSurfaceCreated(RTCStreamingActivity.this);
+                mFURenderer.loadItems(mCurrentCamFacingIndex == CameraStreamingSetting.CAMERA_FACING_ID.CAMERA_FACING_FRONT.ordinal() ? Camera.CameraInfo.CAMERA_FACING_FRONT : Camera.CameraInfo.CAMERA_FACING_BACK);
             }
 
             @Override
             public void onSurfaceChanged(int width, int height) {
-                surfaceWidth = width;
-                surfaceHeight = height;
             }
 
             @Override
             public void onSurfaceDestroyed() {
-                mFaceunityWrapper.onSurfaceDestroyed();
+                mFURenderer.destroyItems();
             }
 
             @Override
             public int onDrawFrame(int texId, int width, int height, float[] floats) {
-                if (!isTrackerOnSurfaceChangedCalled) {
-                    isTrackerOnSurfaceChangedCalled = true;
-                }
-                if (faceTrackingStatus != mFaceunityWrapper.getFaceTrackingStatus()) {
-                    faceTrackingStatus = mFaceunityWrapper.getFaceTrackingStatus();
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mFaceStatusView.setVisibility(faceTrackingStatus == 0 ? View.VISIBLE : View.GONE);
-                        }
-                    });
-                }
-                return mFaceunityWrapper.onDrawFrame(texId, width, height, floats);
+                return mFURenderer.onDrawFrame(texId, width, height, floats);
             }
         });
 
         mRTCStreamingManager.setStreamingPreviewCallback(new StreamingPreviewCallback() {
             @Override
             public boolean onPreviewFrame(byte[] data, int width, int height, int rotation, int fmt, long tsInNanoTime) {
-                return mFaceunityWrapper.onPreviewFrame(data, width, height, rotation, fmt, tsInNanoTime);
+                return mFURenderer.onPreviewFrame(data, width, height, rotation, fmt, tsInNanoTime);
             }
         });
 
@@ -431,6 +409,8 @@ public class RTCStreamingActivity extends AppCompatActivity {
          * You will receive `Ready` state callback when capture started success
          */
         mRTCStreamingManager.startCapture();
+
+        mFaceunityControlView.onResume();
     }
 
     @Override
@@ -444,6 +424,8 @@ public class RTCStreamingActivity extends AppCompatActivity {
         mIsInReadyState = false;
         stopConference();
         stopPublishStreaming();
+
+        mFaceunityControlView.onPause();
     }
 
     @Override
@@ -521,7 +503,7 @@ public class RTCStreamingActivity extends AppCompatActivity {
             mCameraPreviewFrameView.queueEvent(new Runnable() {
                 @Override
                 public void run() {
-                    mFaceunityWrapper.onSurfaceDestroyed();
+                    mFURenderer.destroyItems();
                 }
             });
         }
@@ -607,7 +589,7 @@ public class RTCStreamingActivity extends AppCompatActivity {
             mCameraPreviewFrameView.queueEvent(new Runnable() {
                 @Override
                 public void run() {
-                    mFaceunityWrapper.onSurfaceDestroyed();
+                    mFURenderer.destroyItems();
                     synchronized (lock) {
                         lock.notifyAll();
                     }

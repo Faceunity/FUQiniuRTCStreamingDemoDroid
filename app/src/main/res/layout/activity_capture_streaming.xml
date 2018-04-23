@@ -205,18 +205,11 @@
 
     </com.getbase.floatingactionbutton.FloatingActionsMenu>
 
-    <com.faceunity.wrapper.FaceunityControlView
-        android:id="@+id/faceunity_control_layout"
+    <com.faceunity.beautycontrolview.BeautyControlView
+        android:id="@+id/faceunity_control"
         android:layout_gravity="bottom"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="75dp"/>
-
-    <ImageView
-        android:id="@+id/iv_face_detect"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:src="@mipmap/ic_detect_tip"/>
+        android:layout_marginBottom="75dp"
+        android:layout_height="wrap_content" />
 
 </FrameLayout>
