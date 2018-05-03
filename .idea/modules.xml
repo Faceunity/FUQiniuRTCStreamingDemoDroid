@@ -6,7 +6,7 @@
       <module fileurl="file://H:/AndroidStudioProjects/FUQiniuRTCStreamingDemoDroid/.idea/FUQiniuRTCStreamingDemoDroid.iml" filepath="H:/AndroidStudioProjects/FUQiniuRTCStreamingDemoDroid/.idea/FUQiniuRTCStreamingDemoDroid.iml" />
       <module fileurl="file://H:/AndroidStudioProjects/FUQiniuRTCStreamingDemoDroid/PLDroidRTCStreamingDemo.iml" filepath="H:/AndroidStudioProjects/FUQiniuRTCStreamingDemoDroid/PLDroidRTCStreamingDemo.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/beautycontrolview/beautycontrolview.iml" filepath="$PROJECT_DIR$/beautycontrolview/beautycontrolview.iml" />
+      <module fileurl="file://$PROJECT_DIR$/faceunity/faceunity.iml" filepath="$PROJECT_DIR$/faceunity/faceunity.iml" />
     </modules>
   </component>
 </project>
