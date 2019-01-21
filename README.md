@@ -2,7 +2,7 @@
 
 ## 概述
 
-FUQiniuRTCStreamingDemo 是集成了 Faceunity 面部跟踪和虚拟道具功能和七牛连麦 SDK 的 Demo 。
+FUQiniuRTCStreamingDemo 是集成了 Faceunity 面部跟踪和虚拟道具功能和**[七牛连麦](https://github.com/pili-engineering/PLDroidRTCStreaming)** SDK 的 Demo 。
 本文是 FaceUnity SDK 快速对接七牛连麦 SDK 的导读说明，关于 FaceUnity SDK 的更多详细说明，请参看 [FULiveDemo](https://github.com/Faceunity/FULiveDemoDroid/tree/dev).
 
 # 快速集成方法
